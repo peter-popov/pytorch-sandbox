@@ -1,0 +1,9 @@
+numpy
+tqdm
+einops
+pillow
+jupyter
+torch 
+torchvision
+requests
+matplotlib
