@@ -1,4 +1,4 @@
-FROM nvidia/cuda:10.1-cudnn7-devel
+FROM nvidia/cuda:11.1-devel-ubuntu18.04
 
 WORKDIR /usr/src/app
 

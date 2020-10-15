@@ -3,7 +3,6 @@ from torch.utils.data import Dataset
 from torchvision.datasets import CIFAR10
 
 import numpy as np
-from einops import rearrange
 
 
 class SampleDataset(Dataset):

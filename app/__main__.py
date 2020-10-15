@@ -12,13 +12,14 @@ from torchvision.transforms import Compose, ToTensor, Normalize
 from tqdm import tqdm
 
 from app.datasets import SampleDataset
-from app.models import SampleModel
+from app.models import SampleModel, SampleVggStyle
 
 
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if torch.cuda.is_available():
+        print("Running on GPU!")
         torch.backends.cudnn.benchmark = True
 
     transform = Compose([
@@ -38,17 +39,18 @@ def main(args):
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, 
         num_workers=args.num_workers, shuffle=False)
 
-    testset = SampleDataset(args.data, train=False, transform=transform)
-    testloader = DataLoader(testset, batch_size=args.batch_size, 
-        num_workers=args.num_workers, shuffle=False)
+    torch.autograd.set_detect_anomaly(True)
 
-    model = SampleModel()
+    model = SampleModel(len(dataset.classes))
     model = model.to(device)
     model = nn.DataParallel(model)
 
+    total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print("Total number of parameters {}".format(total_params))
+
     criterion = nn.CrossEntropyLoss()
 
-    optimizer = Adam(model.parameters(), lr=args.lr)
+    optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
 
     for epoch in range(args.num_epochs):
         print("Epoch {}/{}".format(epoch, args.num_epochs - 1))
@@ -62,7 +64,15 @@ def main(args):
 
         print("train loss: {:.4f}, val loss: {:.4f}".format(train_loss, val_loss))
 
-    # TODO: save (best) model(s)
+    torch.save(model, "model.pt")
+
+    # testset = SampleDataset(args.data, train=False, transform=transform)
+    # testloader = DataLoader(testset, batch_size=args.batch_size, 
+    #     num_workers=args.num_workers, shuffle=False)
+    # acc = test(model, device, testset, testloader)
+
+    # print("Model accuracy: {:.4f}".format(acc))
+
 
 
 def train(model, criterion, optimizer, device, dataset, dataloader):
@@ -110,6 +120,21 @@ def validate(model, criterion, device, dataset, dataloader):
 
     return epoch_loss
 
+def test(model, device, dataset, dataloader):
+    model.eval()
+
+    correct_test = 0
+
+    with torch.no_grad():
+        for inputs, targets in tqdm(dataloader, "  test"):
+            inputs = inputs.to(device)
+            targets = targets.to(device)
+
+            outputs = model(inputs)
+
+            correct_test += outputs.eq(targets).sum().item()
+
+    return correct_test / len(dataset)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -120,5 +145,6 @@ if __name__ == "__main__":
     arg("--num-workers", type=int, default=0)
     arg("--num-epochs", type=int, default=10)
     arg("--lr", type=float, default=1e-4)
+    arg("--wd", type=float, default=0.0)
 
     main(parser.parse_args())

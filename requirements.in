@@ -7,3 +7,4 @@ torch
 torchvision
 requests
 matplotlib
+fastai
